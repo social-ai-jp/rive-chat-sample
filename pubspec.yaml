@@ -1,0 +1,36 @@
+name: vtuber_chat
+description: VTuber conversation app with Rive avatar and ElevenLabs voice agent
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+  flutter: ">=3.28.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  rive: ^0.14.3
+  rive_native: ^0.1.3
+  elevenlabs_agents: ^0.3.0
+  permission_handler: ^11.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/andrew_avatar.riv
+    - assets/ui/pattern_background.png
+    - assets/ui/classroom_background.png
+    - assets/ui/wave_background.png
+
+  fonts:
+    - family: Andika
+      fonts:
+        - asset: assets/fonts/Andika-Regular.ttf
+        - asset: assets/fonts/Andika-Bold.ttf
+          weight: 700
