@@ -18,8 +18,14 @@ if [[ -z "$AUTH_HASH" ]]; then
 fi
 
 echo "▶ Injecting AUTH_HASH into build/web/index.html..."
-sed -i.bak "s/__AUTH_HASH__/${AUTH_HASH}/" build/web/index.html
-rm -f build/web/index.html.bak
+python3 -c "
+import sys
+with open('build/web/index.html', 'r') as f:
+    c = f.read()
+c = c.replace('__AUTH_HASH__', sys.argv[1])
+with open('build/web/index.html', 'w') as f:
+    f.write(c)
+" "$AUTH_HASH"
 
 echo "▶ Deploying to Vercel (production)..."
 vercel deploy build/web --prod --yes

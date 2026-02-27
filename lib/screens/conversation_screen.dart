@@ -51,6 +51,17 @@ class _ConversationScreenState extends State<ConversationScreen> {
   static const _typewriterInterval = Duration(milliseconds: 50);
   Timer? _typewriterTimer;
 
+  /// Find the last agent message that still has characters left to reveal.
+  /// This is different from _findActiveAgentMessageIndex (which checks !finalized):
+  /// even after onMessage sets finalized=true, displayText may still be catching up.
+  int? _findTypingAgentMessageIndex() {
+    for (int i = _messages.length - 1; i >= 0; i--) {
+      final m = _messages[i];
+      if (m.isAgent && m.displayText.length < m.text.length) return i;
+    }
+    return null;
+  }
+
   void _startTypewriter() {
     // If the timer is already running, don't restart it — streaming events from
     // ElevenLabs can arrive faster than the 50ms tick interval, and cancelling
@@ -60,33 +71,21 @@ class _ConversationScreenState extends State<ConversationScreen> {
     if (_typewriterTimer?.isActive ?? false) return;
 
     _typewriterTimer = Timer.periodic(_typewriterInterval, (_) {
-      final idx = _findActiveAgentMessageIndex();
+      // Use _findTypingAgentMessageIndex — NOT _findActiveAgentMessageIndex.
+      // The difference: _findActiveAgentMessageIndex checks `!finalized` and
+      // returns null once onMessage sets finalized=true. But displayText may
+      // still be behind text at that point, killing the animation early.
+      // _findTypingAgentMessageIndex checks `displayText.length < text.length`,
+      // so the timer keeps going until every character has been revealed.
+      final idx = _findTypingAgentMessageIndex();
       if (idx == null) {
         _typewriterTimer?.cancel();
         return;
       }
       final msg = _messages[idx];
-      if (msg.displayText.length < msg.text.length) {
-        // Add one character at a time; setState triggers a rebuild.
-        msg.displayText = msg.text.substring(0, msg.displayText.length + 1);
-        if (mounted) setState(() {});
-      } else if (msg.finalized) {
-        _typewriterTimer?.cancel();
-      }
+      msg.displayText = msg.text.substring(0, msg.displayText.length + 1);
+      if (mounted) setState(() {});
     });
-  }
-
-  void _snapTypewriter() {
-    _typewriterTimer?.cancel();
-    final idx = _findActiveAgentMessageIndex();
-    if (idx != null) {
-      _messages[idx].displayText = _messages[idx].text;
-    }
-    // Also snap any older non-finalized messages (safety).
-    for (final m in _messages) {
-      if (m.isAgent) m.displayText = m.text;
-    }
-    if (mounted) setState(() {});
   }
 
   // ── Debug panel ──
@@ -145,7 +144,9 @@ class _ConversationScreenState extends State<ConversationScreen> {
           });
           _startTypewriter();
         },
-        // Final agent message — snap remaining characters instantly then finalize.
+        // Final agent message — mark finalized but let typewriter finish naturally.
+        // The timer uses _findTypingAgentMessageIndex (checks displayText < text),
+        // so it keeps running even after finalized=true until all chars are revealed.
         onMessage: ({required message, required source}) {
           if (source == Role.ai) {
             debugPrint('[EL] agent final: $message');
@@ -159,7 +160,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
                 _messages.add(_ChatMessage(text: message, isAgent: true, finalized: true));
               }
             });
-            _snapTypewriter();
+            // Don't snap — let the typewriter animation finish gracefully.
+            _startTypewriter();
           }
         },
         // User final transcript
