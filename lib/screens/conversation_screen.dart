@@ -52,7 +52,13 @@ class _ConversationScreenState extends State<ConversationScreen> {
   Timer? _typewriterTimer;
 
   void _startTypewriter() {
-    _typewriterTimer?.cancel();
+    // If the timer is already running, don't restart it — streaming events from
+    // ElevenLabs can arrive faster than the 50ms tick interval, and cancelling
+    // then recreating the timer on every event means it never actually fires.
+    // The active timer will naturally pick up the latest `text` value since
+    // _messages[idx].text is updated in-place by the streaming callbacks.
+    if (_typewriterTimer?.isActive ?? false) return;
+
     _typewriterTimer = Timer.periodic(_typewriterInterval, (_) {
       final idx = _findActiveAgentMessageIndex();
       if (idx == null) {
